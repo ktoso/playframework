@@ -120,14 +120,18 @@ private[server] class AkkaModelConversion(
     val entityHeaders: Seq[(String, String)] = request.entity match {
       case HttpEntity.Strict(contentType, data) =>
         Seq(CONTENT_TYPE -> contentType.value, CONTENT_LENGTH -> data.length.toString)
+
       case HttpEntity.Default(contentType, contentLength, _) =>
         Seq(CONTENT_TYPE -> contentType.value, CONTENT_LENGTH -> contentLength.toString)
+
       case HttpEntity.Chunked(contentType, _) =>
         Seq(CONTENT_TYPE -> contentType.value, TRANSFER_ENCODING -> play.api.http.HttpProtocol.CHUNKED)
     }
-    val normalHeaders: Seq[(String, String)] = request.headers
+    val normalHeaders = request.headers
+      .iterator
       .filter(_.isNot(`Raw-Request-URI`.lowercaseName))
       .map(rh => rh.name -> rh.value)
+
     new Headers(entityHeaders ++ normalHeaders)
   }
 
