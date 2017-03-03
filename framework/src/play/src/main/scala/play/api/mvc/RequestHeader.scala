@@ -186,7 +186,7 @@ trait RequestHeader {
    */
   lazy val acceptLanguages: Seq[play.api.i18n.Lang] = {
     val langs = RequestHeader.acceptHeader(headers, HeaderNames.ACCEPT_LANGUAGE).map(item => (item._1, Lang.get(item._2)))
-    langs.sortWith((a, b) => a._1 > b._1).map(_._2).flatten
+    langs.sortWith((a, b) => a._1 > b._1).flatMap(_._2)
   }
 
   /**
@@ -202,7 +202,7 @@ trait RequestHeader {
    * @return true if `mimeType` matches the Accept header, otherwise false
    */
   def accepts(mimeType: String): Boolean = {
-    acceptedTypes.isEmpty || acceptedTypes.find(_.accepts(mimeType)).isDefined
+    acceptedTypes.isEmpty || acceptedTypes.exists(_.accepts(mimeType))
   }
 
   /**
@@ -288,7 +288,7 @@ trait RequestHeader {
 
     // We only need to modify the request when an argument is non-null.
     if (id != null) {
-      newHeader = newHeader.withAttrs(newHeader.attrs.updated(RequestAttrKey.Id, (id: Long)))
+      newHeader = newHeader.withAttrs(newHeader.attrs.updated(RequestAttrKey.Id, id: Long))
     }
     if (tags != null) {
       newHeader = newHeader.withAttrs(newHeader.attrs.updated(RequestAttrKey.Tags, tags))
