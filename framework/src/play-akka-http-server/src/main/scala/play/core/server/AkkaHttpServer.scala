@@ -16,6 +16,8 @@ import akka.http.scaladsl.model.ws.UpgradeToWebSocket
 import akka.http.scaladsl.settings.ServerSettings
 import akka.http.scaladsl.{ ConnectionContext, Http }
 import akka.stream.Materializer
+import akka.stream.impl.ConstantFun
+import akka.stream.impl.fusing.GraphInterpreter
 import akka.stream.scaladsl._
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
@@ -28,6 +30,7 @@ import play.api.routing.Router
 import play.core.{ ApplicationProvider, DefaultWebCommands, SourceMapper, WebCommands }
 import play.core.server._
 import play.core.server.akkahttp.{ AkkaModelConversion, HttpRequestDecoder }
+import play.core.server.akkahttp.InternalSubFusingMaterializerAccess
 import play.core.server.common.{ ForwardedHeaderHandler, ServerResultUtils }
 import play.core.server.ssl.ServerSSLEngine
 import play.server.SSLEngineProvider
@@ -90,7 +93,11 @@ class AkkaHttpServer(
     val connectionSink: Sink[Http.IncomingConnection, _] = Sink.foreach { connection: Http.IncomingConnection =>
       connection.handleWith(Flow[HttpRequest]
         .map(HttpRequestDecoder.decodeRequest)
-        .mapAsync(parallelism = 1)(handleRequest(connection.remoteAddress, _, connectionContext.isSecure)))
+        .map(handleRequest(connection.remoteAddress, _, connectionContext.isSecure))
+        .mapAsync(parallelism = 1)(conforms) // FIXME
+      //         .mapAsync(parallelism = 1)(handleRequest(connection.remoteAddress, _, connectionContext.isSecure))
+      //           // FIXME can this just be map async? will the thread local from materializer work?
+      )
     }
 
     val bindingFuture: Future[Http.ServerBinding] = serverSource.to(connectionSink).run()
@@ -229,6 +236,10 @@ class AkkaHttpServer(
     import play.core.Execution.Implicits.trampoline
     val actionAccumulator: Accumulator[ByteString, Result] = action(taggedRequestHeader)
 
+    // TODO this is ugly but will work well, access is done via internal Akka Streams threadlocal holder...
+    // To make this nice we would have to make all these things GraphStages which actually we can - consider this later.
+    val subFusingMaterializer = InternalSubFusingMaterializerAccess.currentInterpreterSubFusingMaterializer()
+
     val source = if (request.header[Expect].contains(Expect.`100-continue`)) {
       // If we expect 100 continue, then we must not feed the source into the accumulator until the accumulator
       // requests demand.  This is due to a semantic mismatch between Play and Akka-HTTP, Play signals to continue
@@ -239,11 +250,12 @@ class AkkaHttpServer(
       requestBodySource
     }
 
+    // TODO make this one use sub fusing materialiser, we dont need additional actors here
     val resultFuture: Future[Result] = source match {
       case None =>
-        actionAccumulator.run()
+        actionAccumulator.run()(subFusingMaterializer)
       case Some(s) =>
-        actionAccumulator.run(s)
+        actionAccumulator.run(s)(subFusingMaterializer)
     }
     val responseFuture: Future[HttpResponse] = resultFuture.flatMap { result =>
       val cleanedResult: Result = resultUtils.prepareCookies(taggedRequestHeader, result)

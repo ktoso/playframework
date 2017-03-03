@@ -125,9 +125,8 @@ private class SinkAccumulator[-E, +A](wrappedSink: => Sink[E, Future[A]]) extend
   def run(source: Source[E, _])(implicit materializer: Materializer): Future[A] =
     source.toMat(sink)(Keep.right).run() // source is Source.emptu, there is no incoming data
 
-  def run()(implicit materializer: Materializer): Future[A] = {
-    run(Source.empty)
-  }
+  def run()(implicit materializer: Materializer): Future[A] =
+    run(EmptySourceIt.it)
 
   def toSink: Sink[E, Future[A]] = sink
 
@@ -138,6 +137,8 @@ private class SinkAccumulator[-E, +A](wrappedSink: => Sink[E, Future[A]]) extend
   }
 }
 
+@deprecated("Replace with normal usage, this is fixed in Akka", since = "https://github.com/akka/akka/pull/22449")
+object EmptySourceIt { val it = Source.fromGraph(EmptySource) }
 /** FIXME: This is in Akka itself in the next release, a bit faster materialization */
 @deprecated("Replace with normal usage, this is fixed in Akka", since = "https://github.com/akka/akka/pull/22449")
 final object EmptySource extends GraphStage[SourceShape[Nothing]] {
