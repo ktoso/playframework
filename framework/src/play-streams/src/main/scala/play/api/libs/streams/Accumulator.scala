@@ -3,8 +3,11 @@
  */
 package play.api.libs.streams
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.{ Source, Keep, Flow, Sink }
+import akka.annotation.InternalApi
+import akka.stream.impl.Stages.DefaultAttributes
+import akka.stream.{ Attributes, Materializer, Outlet, SourceShape }
+import akka.stream.scaladsl.{ Flow, Keep, Sink, Source }
+import akka.stream.stage.{ GraphStage, GraphStageLogic, OutHandler }
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ ExecutionContext, Future }
@@ -119,9 +122,8 @@ private class SinkAccumulator[-E, +A](wrappedSink: => Sink[E, Future[A]]) extend
   def through[F](flow: Flow[F, E, _]): Accumulator[F, A] =
     new SinkAccumulator(flow.toMat(sink)(Keep.right))
 
-  def run(source: Source[E, _])(implicit materializer: Materializer): Future[A] = {
-    source.toMat(sink)(Keep.right).run()
-  }
+  def run(source: Source[E, _])(implicit materializer: Materializer): Future[A] =
+    source.toMat(sink)(Keep.right).run() // source is Source.emptu, there is no incoming data
 
   def run()(implicit materializer: Materializer): Future[A] = {
     run(Source.empty)
@@ -134,6 +136,26 @@ private class SinkAccumulator[-E, +A](wrappedSink: => Sink[E, Future[A]]) extend
   def asJava: play.libs.streams.Accumulator[E @uV, A @uV] = {
     play.libs.streams.Accumulator.fromSink(sink.mapMaterializedValue(FutureConverters.toJava).asJava)
   }
+}
+
+/** FIXME: This is in Akka itself in the next release, a bit faster materialization */
+@deprecated("Replace with normal usage, this is fixed in Akka", since = "https://github.com/akka/akka/pull/22449")
+final object EmptySource extends GraphStage[SourceShape[Nothing]] {
+
+  val out = Outlet[Nothing]("EmptySource.out")
+  override val shape = SourceShape(out)
+
+  override protected def initialAttributes = DefaultAttributes.lazySource
+
+  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+    new GraphStageLogic(shape) with OutHandler {
+      override def preStart(): Unit = completeStage()
+      override def onPull(): Unit = completeStage()
+
+      setHandler(out, this)
+    }
+
+  override def toString = "EmptySource"
 }
 
 /**

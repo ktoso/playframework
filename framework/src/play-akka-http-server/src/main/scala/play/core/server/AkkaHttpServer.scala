@@ -240,8 +240,10 @@ class AkkaHttpServer(
     }
 
     val resultFuture: Future[Result] = source match {
-      case None => actionAccumulator.run()
-      case Some(s) => actionAccumulator.run(s)
+      case None =>
+        actionAccumulator.run()
+      case Some(s) =>
+        actionAccumulator.run(s)
     }
     val responseFuture: Future[HttpResponse] = resultFuture.flatMap { result =>
       val cleanedResult: Result = resultUtils.prepareCookies(taggedRequestHeader, result)
