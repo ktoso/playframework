@@ -211,8 +211,9 @@ object Dependencies {
   ) ++ playdocWebjarDependencies
 
   val streamsDependencies = Seq(
-    "org.reactivestreams" % "reactive-streams" % "1.0.0",
-    "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+    "org.reactivestreams" % "reactive-streams" % "1.0.0", // included via sources
+    ("com.typesafe.akka" %% "akka-stream" % "2.5-SNAPSHOT").force(), // included via sources
+    ("com.typesafe.akka" %% "akka-actor" % "2.5-SNAPSHOT").force(), // included via sources
     scalaJava8Compat,
     logback % Test
   ) ++ specsBuild.map(_ % "test") ++ javaTestDeps
@@ -275,18 +276,22 @@ object Dependencies {
  */
  object AkkaDependency {
   // Needs to be a URI like git://github.com/akka/akka.git#master or file:///xyz/akka
-  val akkaSourceDependencyUri = sys.props.getOrElse("akka-http.sources", "")
-  val shouldUseSourceDependency = akkaSourceDependencyUri != ""
+  val akkaHttpSourceDependencyUri = sys.props.getOrElse("akka-http.sources", "")
+  val akkaHttpShouldUseSourceDependency = akkaHttpSourceDependencyUri != ""
+  val akkaHttpRepository = uri(akkaHttpSourceDependencyUri)
+
+  val akkaSourceDependencyUri = sys.props.getOrElse("akka.sources", "")
+  val akkaShouldUseSourceDependency = akkaSourceDependencyUri != ""
   val akkaRepository = uri(akkaSourceDependencyUri)
 
   implicit class RichProject(project: Project) {
     /** Adds either a source or a binary dependency, depending on whether the above settings are set */
-    def addAkkaModuleDependency(module: String, config: String = ""): Project =
-      if (shouldUseSourceDependency) {
-        val moduleRef = ProjectRef(akkaRepository, module)
+    def addAkkaHttpModuleDependency(module: String, config: String = ""): Project =
+      if (akkaHttpShouldUseSourceDependency) {
+        val moduleRef = ProjectRef(akkaHttpRepository, module)
         val withConfig: ClasspathDependency =
           if (config == "") {
-            println("  Using Akka-HTTP directly from sources, from: " + akkaSourceDependencyUri)
+            println("  Using Akka-HTTP directly from sources, from: " + akkaHttpSourceDependencyUri)
             moduleRef
           } else moduleRef % config
 
@@ -296,6 +301,26 @@ object Dependencies {
         val withConfig =
           if (config == "") dep
           else dep % config
+        project.settings(libraryDependencies += withConfig)
+      }
+    /** Adds either a source or a binary dependency, depending on whether the above settings are set */
+    def addAkkaModuleDependency(module: String, config: String = ""): Project =
+      if (akkaShouldUseSourceDependency) {
+        val moduleRef = ProjectRef(akkaRepository, module)
+        val withConfig: ClasspathDependency =
+          if (config == "") {
+            println(s"  Using $module directly from sources, from: " + akkaSourceDependencyUri)
+            moduleRef
+          } else moduleRef // % config
+
+        project.dependsOn(withConfig)
+      } else {
+        val dep = "com.typesafe.akka" %% module % Dependencies.akkaVersion
+        val withConfig =
+//          if (config == "") 
+            dep
+//          else 
+//            dep % config
         project.settings(libraryDependencies += withConfig)
       }
   }

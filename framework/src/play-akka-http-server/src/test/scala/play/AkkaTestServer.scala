@@ -29,7 +29,11 @@ object AkkaTestServer extends App {
         [√] fix the Source.empty in Akka so it's a GraphStage (improves perf of running/materializing it)
         [ ] use new materializer!
           [ ] special case the Source.empty somehow? We just need a future from it in the Play usage, special phase to use there?
+        [ ] if materialization becomes really fast, actor creation will be the bottleneck perhaps, so we might want to see:
+              what happens if you take the connection Source, 
+              attach it to a Balance, 
+              and then balance out to a pool of Sinks behind an async boundary
    */
-  
+
   // server.stop()
 }

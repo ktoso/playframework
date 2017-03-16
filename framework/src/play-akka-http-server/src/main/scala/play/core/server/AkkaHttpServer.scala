@@ -5,6 +5,7 @@ package play.core.server
 
 import java.net.InetSocketAddress
 import java.security.{ Provider, SecureRandom }
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl._
 
 import akka.actor.ActorSystem
@@ -15,8 +16,8 @@ import akka.http.scaladsl.model.headers.Expect
 import akka.http.scaladsl.model.ws.UpgradeToWebSocket
 import akka.http.scaladsl.settings.ServerSettings
 import akka.http.scaladsl.{ ConnectionContext, Http }
-import akka.stream.Materializer
-import akka.stream.impl.ConstantFun
+import akka.stream.{ ActorMaterializer, Materializer }
+import akka.stream.impl.{ ConstantFun, SeqActorName }
 import akka.stream.impl.fusing.GraphInterpreter
 import akka.stream.scaladsl._
 import akka.util.ByteString
@@ -49,6 +50,20 @@ class AkkaHttpServer(
     actorSystem: ActorSystem,
     materializer: Materializer,
     stopHook: () => Future[_]) extends Server {
+
+  val am = materializer.asInstanceOf[ActorMaterializer]
+  val fastSpecialMat: Materializer =
+    new akka.stream.impl.SpecialEmptyMaterializer(
+      am.system,
+      am.settings,
+      am.system.dispatchers,
+      am.system.deadLetters,
+      new AtomicBoolean(false),
+      new SeqActorName {
+        override def next() = "FAST"
+        override def copy(name: String) = ???
+      }
+    )
 
   import AkkaHttpServer._
 
@@ -93,10 +108,7 @@ class AkkaHttpServer(
     val connectionSink: Sink[Http.IncomingConnection, _] = Sink.foreach { connection: Http.IncomingConnection =>
       connection.handleWith(Flow[HttpRequest]
         .map(HttpRequestDecoder.decodeRequest)
-        .map(handleRequest(connection.remoteAddress, _, connectionContext.isSecure))
-        .mapAsync(parallelism = 1)(conforms) // FIXME
-      //         .mapAsync(parallelism = 1)(handleRequest(connection.remoteAddress, _, connectionContext.isSecure))
-      //           // FIXME can this just be map async? will the thread local from materializer work?
+        .mapAsync(parallelism = 1)(handleRequest(connection.remoteAddress, _, connectionContext.isSecure))
       )
     }
 
@@ -140,7 +152,7 @@ class AkkaHttpServer(
     new ServerResultUtils(httpConfiguration)
   }
 
-  private lazy val modelConversion: AkkaModelConversion = {
+  private val modelConversion: AkkaModelConversion = {
     val configuration: Option[Configuration] = applicationProvider.get.toOption.map(_.configuration)
     val forwardedHeaderHandler = new ForwardedHeaderHandler(
       ForwardedHeaderHandler.ForwardedHeaderHandlerConfig(configuration))
@@ -250,12 +262,12 @@ class AkkaHttpServer(
       requestBodySource
     }
 
-    // TODO make this one use sub fusing materialiser, we dont need additional actors here
     val resultFuture: Future[Result] = source match {
       case None =>
-        actionAccumulator.run()(subFusingMaterializer)
+        actionAccumulator.run()(subFusingMaterializer) // sub-fusing avoids creating additional actors
+      //        actionAccumulator.run()(fastSpecialMat) // fast materialization special case for empty stream
       case Some(s) =>
-        actionAccumulator.run(s)(subFusingMaterializer)
+        actionAccumulator.run(s)(subFusingMaterializer) // sub-fusing avoids creating additional actors
     }
     val responseFuture: Future[HttpResponse] = resultFuture.flatMap { result =>
       val cleanedResult: Result = resultUtils.prepareCookies(taggedRequestHeader, result)

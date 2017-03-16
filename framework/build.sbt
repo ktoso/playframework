@@ -99,7 +99,20 @@ lazy val PlayAkkaHttpServerProject = PlayCrossBuiltProject("Play-Akka-Http-Serve
     //.settings(ScriptedPlugin.scriptedSettings ++ playScriptedSettings)
     .dependsOn(PlayServerProject, StreamsProject)
     .dependsOn(PlayGuiceProject % "test")
-    .addAkkaModuleDependency("akka-http-core")
+    .addAkkaHttpModuleDependency("akka-http-core")
+    .addAkkaModuleDependency("akka-stream")
+
+lazy val PlayAkkaHttpServerBenchProject = PlayCrossBuiltProject("Play-Akka-Http-Server-Bench", "play-akka-http-server-bench")
+    // Include scripted tests here as well as in the SBT Plugin, because we
+    // don't want the SBT Plugin to have a dependency on an experimental module.
+    //.settings(ScriptedPlugin.scriptedSettings ++ playScriptedSettings)
+    .dependsOn(PlayServerProject, StreamsProject)
+    .dependsOn(PlayGuiceProject % "test")
+    .addAkkaHttpModuleDependency("akka-http-core")
+//    .addAkkaModuleDependency("akka-stream")
+//    .addAkkaModuleDependency("akka-actor")
+    .enablePlugins(JmhPlugin)
+
 
 lazy val PlayJdbcApiProject = PlayCrossBuiltProject("Play-JDBC-Api", "play-jdbc-api")
     .dependsOn(PlayProject)

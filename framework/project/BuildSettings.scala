@@ -187,6 +187,7 @@ object BuildSettings {
   def PlayCrossBuiltProject(name: String, dir: String): Project = {
     Project(name, file("src/" + dir))
         .enablePlugins(PlayLibrary)
+        .settings(resolvers += Resolver.mavenLocal)
         .settings(playRuntimeSettings: _*)
         .settings(omnidocSettings: _*)
   }

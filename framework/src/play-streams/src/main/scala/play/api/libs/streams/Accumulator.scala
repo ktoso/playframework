@@ -3,9 +3,12 @@
  */
 package play.api.libs.streams
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.annotation.InternalApi
+import akka.stream.impl.SeqActorName
 import akka.stream.impl.Stages.DefaultAttributes
-import akka.stream.{ Attributes, Materializer, Outlet, SourceShape }
+import akka.stream._
 import akka.stream.scaladsl.{ Flow, Keep, Sink, Source }
 import akka.stream.stage.{ GraphStage, GraphStageLogic, OutHandler }
 
@@ -125,8 +128,21 @@ private class SinkAccumulator[-E, +A](wrappedSink: => Sink[E, Future[A]]) extend
   def run(source: Source[E, _])(implicit materializer: Materializer): Future[A] =
     source.toMat(sink)(Keep.right).run() // source is Source.emptu, there is no incoming data
 
-  def run()(implicit materializer: Materializer): Future[A] =
-    run(EmptySourceIt.it)
+  def run()(implicit materializer: Materializer): Future[A] = {
+    //    val am = materializer.asInstanceOf[ActorMaterializer]
+    //    val system = am.system
+    //    val fastNotSeqActorNames = new SeqActorName {
+    //      override def next() = "FAST"
+    //      override def copy(name: String) = ???
+    //    }
+    //    val fastSpecialMat = new akka.stream.impl.TheSpecialEmptyMaterializer(system, am.settings, system.dispatchers, system.deadLetters, new AtomicBoolean(false), fastNotSeqActorNames)
+
+    val g = Source.empty.toMat(sink)(Keep.right)
+    //    import akka.stream.impl._
+    //    TraversalBuilder.printTraversal(g.traversalBuilder.traversal)
+    g.run()
+    //    g.run()(fastSpecialMat) // source is Source.empty, there is no incoming data
+  }
 
   def toSink: Sink[E, Future[A]] = sink
 
@@ -135,28 +151,6 @@ private class SinkAccumulator[-E, +A](wrappedSink: => Sink[E, Future[A]]) extend
   def asJava: play.libs.streams.Accumulator[E @uV, A @uV] = {
     play.libs.streams.Accumulator.fromSink(sink.mapMaterializedValue(FutureConverters.toJava).asJava)
   }
-}
-
-@deprecated("Replace with normal usage, this is fixed in Akka", since = "https://github.com/akka/akka/pull/22449")
-object EmptySourceIt { val it = Source.fromGraph(EmptySource) }
-/** FIXME: This is in Akka itself in the next release, a bit faster materialization */
-@deprecated("Replace with normal usage, this is fixed in Akka", since = "https://github.com/akka/akka/pull/22449")
-final object EmptySource extends GraphStage[SourceShape[Nothing]] {
-
-  val out = Outlet[Nothing]("EmptySource.out")
-  override val shape = SourceShape(out)
-
-  override protected def initialAttributes = DefaultAttributes.lazySource
-
-  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) with OutHandler {
-      override def preStart(): Unit = completeStage()
-      override def onPull(): Unit = completeStage()
-
-      setHandler(out, this)
-    }
-
-  override def toString = "EmptySource"
 }
 
 /**
