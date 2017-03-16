@@ -36,41 +36,41 @@ private[server] class AkkaModelConversion(
    */
   def convertRequest(requestId: Long, remoteAddress: InetSocketAddress, secureProtocol: Boolean, request: HttpRequest)(implicit fm: Materializer): (RequestHeader, Option[Source[ByteString, Any]]) = {
 
-        (
-          convertRequestHeader(requestId, remoteAddress, secureProtocol, request),
-          convertRequestBody(request)
-        )
+    (
+      convertRequestHeader(requestId, remoteAddress, secureProtocol, request),
+      convertRequestBody(request)
+    )
 
-//    // FIXME this is if you want to try out avoiding conversion 
-//    (
-//      new RequestHeaderImpl(
-//        forwardedHeaderHandler.forwardedConnection(
-//          new RemoteConnection {
-//            override def remoteAddress: InetAddress = InetAddress.getLocalHost
-//            override def secure: Boolean = secureProtocol
-//            // TODO - Akka does not yet expose the SSLEngine used for the request
-//            override lazy val clientCertificateChain = None
-//          },
-//          Headers()),
-//        request.method.name,
-//        new RequestTarget {
-//          override lazy val uri: URI = new URI(uriString)
-//          override lazy val uriString: String = request.header[`Raw-Request-URI`] match {
-//            case None =>
-//              logger.warn("Can't get raw request URI.")
-//              request.uri.toString
-//            case Some(rawUri) =>
-//              rawUri.uri
-//          }
-//          override lazy val path: String = request.uri.path.toString
-//          override lazy val queryMap: Map[String, Seq[String]] = request.uri.query().toMultiMap
-//        },
-//        request.protocol.value,
-//        Headers(),
-//        TypedMap.empty
-//      ),
-//      None
-//    )
+    //    // FIXME this is if you want to try out avoiding conversion 
+    //    (
+    //      new RequestHeaderImpl(
+    //        forwardedHeaderHandler.forwardedConnection(
+    //          new RemoteConnection {
+    //            override def remoteAddress: InetAddress = InetAddress.getLocalHost
+    //            override def secure: Boolean = secureProtocol
+    //            // TODO - Akka does not yet expose the SSLEngine used for the request
+    //            override lazy val clientCertificateChain = None
+    //          },
+    //          Headers()),
+    //        request.method.name,
+    //        new RequestTarget {
+    //          override lazy val uri: URI = new URI(uriString)
+    //          override lazy val uriString: String = request.header[`Raw-Request-URI`] match {
+    //            case None =>
+    //              logger.warn("Can't get raw request URI.")
+    //              request.uri.toString
+    //            case Some(rawUri) =>
+    //              rawUri.uri
+    //          }
+    //          override lazy val path: String = request.uri.path.toString
+    //          override lazy val queryMap: Map[String, Seq[String]] = request.uri.query().toMultiMap
+    //        },
+    //        request.protocol.value,
+    //        Headers(),
+    //        TypedMap.empty
+    //      ),
+    //      None
+    //    )
   }
 
   /**
@@ -171,33 +171,33 @@ private[server] class AkkaModelConversion(
     unvalidated: Result,
     protocol: HttpProtocol,
     errorHandler: HttpErrorHandler)(implicit mat: Materializer): Future[HttpResponse] = {
-        // TODO comment to avoid conversion 
-        import play.core.Execution.Implicits.trampoline
+    // TODO comment to avoid conversion 
+    import play.core.Execution.Implicits.trampoline
 
-        resultUtils.resultConversionWithErrorHandling(requestHeaders, unvalidated, errorHandler) { unvalidated =>
-          // Convert result
-          resultUtils.validateResult(requestHeaders, unvalidated, errorHandler).map { validated: Result =>
-            val convertedHeaders: AkkaHttpHeaders = convertResponseHeaders(validated.header.headers)
-            val entity = convertResultBody(requestHeaders, convertedHeaders, validated, protocol)
-            val connectionHeader = resultUtils.determineConnectionHeader(requestHeaders, validated)
-            val closeHeader = connectionHeader.header.map(Connection(_))
-            val response = HttpResponse(
-              status = validated.header.status,
-              headers = convertedHeaders.misc ++ closeHeader,
-              entity = entity,
-              protocol = protocol
-            )
-            response
-          }
-        } {
-          // Fallback response in case an exception is thrown during normal error handling
-          HttpResponse(
-            status = Status.INTERNAL_SERVER_ERROR,
-            headers = immutable.Seq(Connection("close")),
-            entity = HttpEntity.Empty,
-            protocol = protocol
-          )
-        }
+    resultUtils.resultConversionWithErrorHandling(requestHeaders, unvalidated, errorHandler) { unvalidated =>
+      // Convert result
+      resultUtils.validateResult(requestHeaders, unvalidated, errorHandler).map { validated: Result =>
+        val convertedHeaders: AkkaHttpHeaders = convertResponseHeaders(validated.header.headers)
+        val entity = convertResultBody(requestHeaders, convertedHeaders, validated, protocol)
+        val connectionHeader = resultUtils.determineConnectionHeader(requestHeaders, validated)
+        val closeHeader = connectionHeader.header.map(Connection(_))
+        val response = HttpResponse(
+          status = validated.header.status,
+          headers = convertedHeaders.misc ++ closeHeader,
+          entity = entity,
+          protocol = protocol
+        )
+        response
+      }
+    } {
+      // Fallback response in case an exception is thrown during normal error handling
+      HttpResponse(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = immutable.Seq(Connection("close")),
+        entity = HttpEntity.Empty,
+        protocol = protocol
+      )
+    }
   }
 
   def parseContentType(contentType: Option[String]): ContentType = {
