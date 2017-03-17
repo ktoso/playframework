@@ -76,7 +76,7 @@ private[server] class AkkaModelConversion(
   /**
    * Convert an Akka `HttpRequest` to a `RequestHeader`.
    */
-  private def convertRequestHeader(
+  def convertRequestHeader(
     requestId: Long,
     remoteAddress: InetSocketAddress,
     secureProtocol: Boolean,

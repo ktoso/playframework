@@ -4,42 +4,37 @@
 package play.core.server
 
 import java.net.InetSocketAddress
-import java.security.{ Provider, SecureRandom }
-import java.util.concurrent.atomic.AtomicBoolean
+import java.security.{Provider, SecureRandom}
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl._
 
 import akka.actor.ActorSystem
 import akka.http.play.WebSocketHandler
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers
+import akka.http.scaladsl.model.{headers, _}
 import akka.http.scaladsl.model.headers.Expect
 import akka.http.scaladsl.model.ws.UpgradeToWebSocket
 import akka.http.scaladsl.settings.ServerSettings
-import akka.http.scaladsl.{ ConnectionContext, Http }
-import akka.stream.{ ActorMaterializer, Materializer }
-import akka.stream.impl.{ ConstantFun, SeqActorName }
-import akka.stream.impl.fusing.GraphInterpreter
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.scaladsl._
+import akka.stream.{ActorMaterializer, Materializer}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
-import play.api.{ Configuration, _ }
-import play.api.http.{ DefaultHttpErrorHandler, HttpConfiguration, HttpErrorHandler }
+import play.api.http.{DefaultHttpErrorHandler, HttpConfiguration, HttpErrorHandler}
 import play.api.inject.DefaultApplicationLifecycle
 import play.api.libs.streams.Accumulator
 import play.api.mvc._
 import play.api.routing.Router
-import play.core.{ ApplicationProvider, DefaultWebCommands, SourceMapper, WebCommands }
-import play.core.server._
-import play.core.server.akkahttp.{ AkkaModelConversion, HttpRequestDecoder }
-import play.core.server.akkahttp.InternalSubFusingMaterializerAccess
-import play.core.server.common.{ ForwardedHeaderHandler, ServerResultUtils }
+import play.api.{Configuration, _}
+import play.core.server.akkahttp.{AkkaModelConversion, HttpRequestDecoder, InternalSubFusingMaterializerAccess}
+import play.core.server.common.{ForwardedHeaderHandler, ServerResultUtils}
 import play.core.server.ssl.ServerSSLEngine
+import play.core.{ApplicationProvider, DefaultWebCommands, SourceMapper, WebCommands}
 import play.server.SSLEngineProvider
 
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
-import scala.util.{ Failure, Success, Try }
+import scala.util.{Failure, Success, Try}
 
 /**
  * Starts a Play server using Akka HTTP.
@@ -52,18 +47,19 @@ class AkkaHttpServer(
     stopHook: () => Future[_]) extends Server {
 
   val am = materializer.asInstanceOf[ActorMaterializer]
-  val fastSpecialMat: Materializer =
-    new akka.stream.impl.SpecialEmptyMaterializer(
-      am.system,
-      am.settings,
-      am.system.dispatchers,
-      am.system.deadLetters,
-      new AtomicBoolean(false),
-      new SeqActorName {
-        override def next() = "FAST"
-        override def copy(name: String) = ???
-      }
-    )
+  //  val fastSpecialMat: Materializer =
+  //    new akka.stream.impl.SpecialEmptyMaterializer(
+  //      am.system,
+  //      am.settings,
+  //      am.system.dispatchers,
+  //      am.system.deadLetters,
+  //
+  //      new AtomicBoolean(false),
+  //      new akka.stream.impl.SeqActorName {
+  //        override def next() = "FAST"
+  //        override def copy(name: String) = ???
+  //      }
+  //    )
 
   import AkkaHttpServer._
 

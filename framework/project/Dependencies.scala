@@ -212,8 +212,8 @@ object Dependencies {
 
   val streamsDependencies = Seq(
     "org.reactivestreams" % "reactive-streams" % "1.0.0", // included via sources
-    ("com.typesafe.akka" %% "akka-stream" % "2.5-SNAPSHOT").force(), // included via sources
-    ("com.typesafe.akka" %% "akka-actor" % "2.5-SNAPSHOT").force(), // included via sources
+    ("com.typesafe.akka" %% "akka-stream" % "2.4.17").force(), // included via sources
+    ("com.typesafe.akka" %% "akka-actor" % "2.4.17").force(), // included via sources
     scalaJava8Compat,
     logback % Test
   ) ++ specsBuild.map(_ % "test") ++ javaTestDeps

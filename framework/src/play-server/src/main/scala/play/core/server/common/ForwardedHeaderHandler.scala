@@ -5,6 +5,7 @@ package play.core.server.common
 
 import java.net.InetAddress
 import java.security.cert.X509Certificate
+import java.util.Properties
 
 import play.api.{ Configuration, Logger }
 import play.api.mvc.Headers
@@ -12,6 +13,7 @@ import play.core.server.common.NodeIdentifierParser.Ip
 
 import scala.annotation.tailrec
 import ForwardedHeaderHandler._
+import com.typesafe.config.ConfigFactory
 import play.api.mvc.request.RemoteConnection
 
 /**
@@ -228,17 +230,20 @@ private[server] object ForwardedHeaderHandler {
     }
   }
 
+  // FIXME
   object ForwardedHeaderHandlerConfig {
     def apply(configuration: Option[Configuration]): ForwardedHeaderHandlerConfig = {
-      val config = configuration.getOrElse(Configuration.reference).get[Configuration]("play.http.forwarded")
+      //      val config: Configuration = configuration.getOrElse(Configuration.reference).get[Configuration]("play.http.forwarded")
 
-      val version = config.get[String]("version") match {
-        case "x-forwarded" => Xforwarded
-        case "rfc7239" => Rfc7239
-        case _ => throw config.reportError("version", "Forwarded header version must be either x-forwarded or rfc7239")
-      }
+      val version =
+        //        config.get[String]("version") match {
+        //        case "x-forwarded" => 
+        Xforwarded
+      //        case "rfc7239" => Rfc7239
+      //        case _ => throw config.reportError("version", "Forwarded header version must be either x-forwarded or rfc7239")
+      //      }
 
-      ForwardedHeaderHandlerConfig(version, config.get[Seq[String]]("trustedProxies").map(Subnet.apply).toList)
+      ForwardedHeaderHandlerConfig(version, List())
     }
   }
 }
